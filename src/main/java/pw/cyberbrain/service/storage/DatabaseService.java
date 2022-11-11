@@ -24,9 +24,8 @@ public class DatabaseService implements StorageService {
     }
 
     @Override
-    public boolean handleNewRequest(String request) {
-        CallRequestDto callRequestDto = CallRequestDto.getCallRequestDto(request);
-        CallRequestDao callRequestDao = mapper.map(callRequestDto, CallRequestDao.class);
+    public boolean handleNewRequest(CallRequestDto request) {
+        CallRequestDao callRequestDao = mapper.map(request, CallRequestDao.class);
         return Objects.equals(repository.save(callRequestDao).getUserId(), callRequestDao.getUserId());
     }
 }
