@@ -5,10 +5,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import pw.cyberbrain.service.dto.CallRequestDto;
+import pw.cyberbrain.service.dto.MessageDto;
+import pw.cyberbrain.service.utils.CallRequestUtils;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 
@@ -23,12 +27,21 @@ public class RabbitMqClient implements QueueClient<String>, MessageHandler {
     private String TO_NOTIFICATION_SERVICE;
     @Value("${rabbitmq.host}")
     private String RABBITMQ_HOST;
-    private Function<String, Boolean> messageHandler;
+    private Function<CallRequestDto, Boolean> messageHandler;
 
     private final DeliverCallback deliverCallback = (consumerTag, delivery) -> {
         String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
         if (messageHandler != null) {
-            setMessageAck(delivery, messageHandler.apply(message));
+            CallRequestDto callRequestDto = CallRequestDto.getCallRequestDto(message);
+            if (messageHandler.apply(callRequestDto)) {
+                setMessageAck(delivery, true);
+                MessageDto messageDto = new MessageDto();
+                messageDto.setChatId(callRequestDto.getUserId());
+                messageDto.setPayload(List.of(CallRequestUtils.getNewRequestNotificationText(callRequestDto)));
+                sendToQueue(MessageDto.getMessageFromDto(messageDto));
+            } else {
+                setMessageAck(delivery, false);
+            }
         }
     };
 
@@ -63,18 +76,16 @@ public class RabbitMqClient implements QueueClient<String>, MessageHandler {
         try {
             if (isHandled) {
                 channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
-            }
-            else {
+            } else {
                 channel.basicNack(delivery.getEnvelope().getDeliveryTag(), false, true);
             }
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
     @Override
-    public void setMessageHandler(Function<String, Boolean> handler) {
+    public void setMessageHandler(Function<CallRequestDto, Boolean> handler) {
         this.messageHandler = handler;
     }
 

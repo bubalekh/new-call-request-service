@@ -22,7 +22,7 @@ public class TestSender {
             dto.setName("Test Name");
             dto.setPhone("+79876543210");
             dto.setDate("Test Date");
-            dto.setUserId(1L);
+            dto.setUserId(571900962L);
             dto.setTime("Test time");
             String message = mapper.writeValueAsString(dto);
             channel.basicPublish("", QUEUE_NAME, null, message.getBytes(StandardCharsets.UTF_8));
